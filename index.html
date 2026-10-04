@@ -7,7 +7,7 @@
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Plus Jakarta Sans', 'Noto Sans JP', sans-serif; }
@@ -38,20 +38,29 @@
     </div>
 
     <!-- APIキー設定エリア -->
-    <div class="flex items-center gap-2 bg-slate-900 border border-slate-800 p-2 rounded-xl text-xs">
+    <div class="flex flex-wrap items-center gap-2 bg-slate-900 border border-slate-800 p-2.5 rounded-xl text-xs">
       <span class="text-slate-400 font-semibold pl-1">Gemini APIキー:</span>
-      <input type="password" id="api-key-input" placeholder="AI StudioのAPIキーを入力" class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 w-44 sm:w-56 font-mono">
-      <button onclick="saveApiKey()" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition">
-        保存
+      <input type="password" id="api-key-input" placeholder="AIzaSy... を入力" class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 w-44 sm:w-52 font-mono">
+      <button onclick="testAndSaveApiKey()" id="key-test-btn" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition">
+        保存＆接続テスト
       </button>
-      <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-indigo-400 hover:underline text-[11px] px-1" title="無料キーを取得">取得(無料)</a>
+      <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-indigo-400 hover:underline text-[11px] px-1" title="無料キーを取得">無料キー取得 ↗</a>
     </div>
   </header>
+
+  <!-- エラー・通知バナー -->
+  <div id="notice-banner" class="max-w-6xl w-full mx-auto mt-4 hidden">
+    <div id="notice-box" class="p-3.5 rounded-xl text-xs flex items-start gap-2.5 border">
+      <span id="notice-icon" class="text-base shrink-0">⚠️</span>
+      <div id="notice-content" class="flex-1 leading-relaxed"></div>
+      <button onclick="hideNotice()" class="text-slate-400 hover:text-white text-sm">✕</button>
+    </div>
+  </div>
 
   <!-- メインコンテンツ -->
   <main class="max-w-6xl w-full mx-auto flex-1 flex flex-col gap-6 pt-6">
 
-    <!-- ファイル選択＆ドラッグ＆ドロップ -->
+    <!-- ファイル選択＆ドラッグ＆ドロップ (初期表示) -->
     <div id="dropzone-section" class="w-full flex flex-col gap-6">
       <div id="dropzone" class="border-2 border-dashed border-slate-700 hover:border-indigo-400 bg-slate-900/50 hover:bg-slate-900/80 rounded-3xl p-8 sm:p-12 text-center cursor-pointer transition flex flex-col items-center justify-center">
         <input type="file" id="file-input" accept="image/*,application/pdf" class="hidden">
@@ -69,7 +78,7 @@
 
       <!-- サンプル書類でテスト -->
       <div class="flex flex-col gap-2.5">
-        <h3 class="text-xs sm:text-sm font-bold text-slate-300">サンプル書類で即座にテスト（1クリック）:</h3>
+        <h3 class="text-xs sm:text-sm font-bold text-slate-300">サンプル書類ですぐに試す（1クリック文字起こし）:</h3>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <button onclick="loadSample('kuzushiji')" class="p-3.5 rounded-2xl bg-slate-900/70 hover:bg-slate-800 border border-amber-500/30 text-left transition">
             <span class="text-[10px] font-bold text-amber-300 px-2 py-0.5 bg-amber-500/10 rounded">古文書・くずし字</span>
@@ -89,7 +98,7 @@
           <button onclick="loadSample('table')" class="p-3.5 rounded-2xl bg-slate-900/70 hover:bg-slate-800 border border-emerald-500/30 text-left transition">
             <span class="text-[10px] font-bold text-emerald-300 px-2 py-0.5 bg-emerald-500/10 rounded">表・CSV</span>
             <h4 class="text-xs font-bold text-white mt-1.5 mb-0.5">スペック比較仕様書</h4>
-            <p class="text-[11px] text-slate-400">多列の表組みデータをMarkdown＆CSV化</p>
+            <p class="text-[11px] text-slate-400">表組みデータをMarkdown＆CSV化</p>
           </button>
         </div>
       </div>
@@ -100,7 +109,18 @@
 
       <!-- モード選択ツールバー -->
       <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col gap-3 shadow-xl">
-        <label class="text-xs font-bold text-slate-300">抽出モードを選択:</label>
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-bold text-slate-300">抽出モードを選択:</label>
+          <div class="flex items-center gap-1.5 text-xs text-slate-400">
+            <span>使用モデル:</span>
+            <select id="model-select" class="bg-slate-950 border border-slate-700 text-white rounded px-2 py-0.5 text-xs focus:outline-none">
+              <option value="gemini-2.5-flash">gemini-2.5-flash (推奨・高速高精度)</option>
+              <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+              <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+            </select>
+          </div>
+        </div>
+
         <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
           <button onclick="setMode('standard')" id="btn-standard" class="mode-btn p-2 rounded-xl border border-indigo-500 bg-indigo-600/20 text-xs text-white font-semibold text-left">標準忠実再現</button>
           <button onclick="setMode('kuzushiji')" id="btn-kuzushiji" class="mode-btn p-2 rounded-xl border border-slate-800 bg-slate-950 text-xs text-slate-300 font-semibold text-left">古文書・くずし字</button>
@@ -113,7 +133,7 @@
         </div>
 
         <div class="flex items-center justify-between pt-2 border-t border-slate-800">
-          <span class="text-xs text-slate-400">Ctrl + Enter で即座に実行できます</span>
+          <span class="text-xs text-slate-400">ショートカット: Ctrl + Enter で即座に実行</span>
           <button id="run-btn" onclick="executeDirectOcr()" class="px-7 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-lg shadow-indigo-500/25 transition">
             文字起こしを開始
           </button>
@@ -168,20 +188,64 @@
     let currentMode = 'standard';
     let rotation = 0;
 
-    // ローカルストレージからAPIキーを読み込み
+    // 初期化：保存されているAPIキーをロード
     window.addEventListener('DOMContentLoaded', () => {
       const savedKey = localStorage.getItem('gemini_api_key');
-      if (savedKey) document.getElementById('api-key-input').value = savedKey;
+      if (savedKey) {
+        document.getElementById('api-key-input').value = savedKey;
+      }
     });
 
-    function saveApiKey() {
+    function showNotice(type, title, msg) {
+      const banner = document.getElementById('notice-banner');
+      const box = document.getElementById('notice-box');
+      const icon = document.getElementById('notice-icon');
+      const content = document.getElementById('notice-content');
+
+      banner.classList.remove('hidden');
+      if (type === 'success') {
+        box.className = 'p-3.5 rounded-xl text-xs flex items-start gap-2.5 border bg-emerald-950/60 border-emerald-500/40 text-emerald-200';
+        icon.textContent = '✅';
+      } else {
+        box.className = 'p-3.5 rounded-xl text-xs flex items-start gap-2.5 border bg-rose-950/60 border-rose-500/40 text-rose-200';
+        icon.textContent = '❌';
+      }
+      content.innerHTML = `<strong>${title}</strong>: ${msg}`;
+    }
+
+    function hideNotice() {
+      document.getElementById('notice-banner').classList.add('hidden');
+    }
+
+    // APIキーの接続テストと保存
+    async function testAndSaveApiKey() {
       const key = document.getElementById('api-key-input').value.trim();
       if (!key) {
-        alert('APIキーを入力してください。');
+        showNotice('error', 'APIキー未入力', 'Google AI Studio で取得したAPIキーを入力してください。');
         return;
       }
-      localStorage.setItem('gemini_api_key', key);
-      alert('APIキーをブラウザに保存しました！');
+
+      const btn = document.getElementById('key-test-btn');
+      btn.disabled = true;
+      btn.textContent = '通信テスト中...';
+
+      try {
+        const testUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${key}`;
+        const res = await fetch(testUrl);
+        const data = await res.json();
+
+        if (data.error) {
+          throw new Error(data.error.message || 'APIキーが無効です');
+        }
+
+        localStorage.setItem('gemini_api_key', key);
+        showNotice('success', '接続成功', 'Gemini APIキーの疎通確認が完了し、ブラウザに保存されました！');
+      } catch (err) {
+        showNotice('error', 'APIキー接続エラー', err.message + ' (APIキーが正しいか確認してください)');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '保存＆接続テスト';
+      }
     }
 
     function setMode(mode) {
@@ -218,12 +282,50 @@
       }
     });
 
+    // 高解像度写真の場合、APIの送信制限を超えないよう自動で適正サイズにリサイズ
     function handleFile(file) {
+      hideNotice();
       mimeType = file.type || 'image/png';
+
+      // PDFの場合はそのままBase64化
+      if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          base64Data = e.target.result.split(',')[1] || '';
+          showWorkspace('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 24 24" fill="none" stroke="%23818cf8" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>', file.name);
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      // 画像の場合: Canvasを使って最大2048pxに調整
       const reader = new FileReader();
       reader.onload = (e) => {
-        base64Data = e.target.result.split(',')[1] || '';
-        showWorkspace(e.target.result, file.name);
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 2048;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+          base64Data = compressedDataUrl.split(',')[1] || '';
+          mimeType = 'image/jpeg';
+          showWorkspace(compressedDataUrl, file.name);
+        };
+        img.src = e.target.result;
       };
       reader.readAsDataURL(file);
     }
@@ -251,48 +353,49 @@
       document.getElementById('preview').style.transform = `rotate(${rotation}deg)`;
     }
 
-    // Google Gemini REST API をブラウザから直接呼び出し (サーバー不要！)
+    // Google Gemini REST API 実行
     async function executeDirectOcr() {
+      hideNotice();
       const apiKey = document.getElementById('api-key-input').value.trim() || localStorage.getItem('gemini_api_key');
       if (!apiKey) {
-        alert('右上の入力欄に Gemini APIキー を入力して「保存」してください。\n(Google AI Studio で無料ですぐに取得できます)');
+        showNotice('error', 'APIキー未設定', '右上の入力欄に Gemini APIキー を入力して「保存」してください。');
         document.getElementById('api-key-input').focus();
         return;
       }
       if (!base64Data) {
-        alert('PDFまたは画像ファイルを選択してください。');
+        showNotice('error', 'ファイル未選択', 'PDFまたは画像ファイルを選択してください。');
         return;
       }
 
       const runBtn = document.getElementById('run-btn');
       const resultArea = document.getElementById('result');
+      const selectedModel = document.getElementById('model-select').value;
       runBtn.disabled = true;
       runBtn.textContent = '解析中...';
-      resultArea.value = 'Gemini 3.8 Flash で解析しています...';
+      resultArea.value = 'Gemini で高精度解析中...';
 
-      // モード別システム指示
       let systemInstruction = "あなたは高精度のOCR解析AIです。画像やPDFの文字を漏れなく正確にテキスト化してください。";
-      let userPrompt = "この画像/文書の文字を起こしてください。";
+      let userPrompt = "この文書または画像に書かれているすべての文字を漏れなく高精度にテキスト化してください。";
 
       if (currentMode === 'kuzushiji') {
         systemInstruction = "あなたは日本の古文書学・翻刻の専門家です。くずし字・変体仮名を精密に翻刻し、【翻刻】、【現代語訳】、【語注・時代背景解説】の3部構成で丁寧に出力してください。";
-        userPrompt = "この古文書・くずし字を解読し、翻刻、現代語訳、語注を出力してください。";
+        userPrompt = "この古文書・くずし字を専門的に解読し、翻刻、現代語訳、語注を出力してください。";
       } else if (currentMode === 'handwriting') {
-        systemInstruction = "あなたは手書き文字解析のスペシャリストです。ノートやホワイトボードの乱筆・続け字・略字・ToDoリストを文脈から正しく補正してテキスト化してください。";
+        systemInstruction = "手書き文字解析のスペシャリストとして、ノートやホワイトボードの乱筆・続け字・略字・ToDoリストを文脈から正しく補正してテキスト化してください。";
       } else if (currentMode === 'table') {
         systemInstruction = "画像内の表組みや明細データをMarkdown表形式 (| 列1 | 列2 | ...) に整形して出力してください。";
       } else if (currentMode === 'key_value') {
-        systemInstruction = "書類の主要項目を整理し、最後に ```json ... ``` 形式で構造化JSONを出力してください。";
+        systemInstruction = "主要項目を整理し、最後に ```json ... ``` 形式で構造化JSONを出力してください。";
       } else if (currentMode === 'markdown') {
         systemInstruction = "見出し(#)、箇条書き(-)、リスト、太字等を使って読みやすいMarkdown形式で出力してください。";
       } else if (currentMode === 'ruby_furigana') {
         systemInstruction = "縦書きやルビ(ふりがな)を正確に文字起こししてください。ふりがなは 漢字(かんじ) の形式で付与してください。";
       } else if (currentMode === 'translate') {
-        systemInstruction = "原文の文字起こしを出力した後、区切り線(---)を挟んで自然な日本語訳または英訳を出力してください。";
+        systemInstruction = "原文の文字起こしを出力した後、区切り線(---)を挟んで日本語訳または英訳を出力してください。";
       }
 
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
         const payload = {
           systemInstruction: { parts: [{ text: systemInstruction }] },
           contents: [
@@ -314,14 +417,14 @@
 
         const data = await response.json();
         if (data.error) {
-          throw new Error(data.error.message || 'APIエラーが発生しました');
+          throw new Error(data.error.message || `APIエラー (コード: ${data.error.code})`);
         }
 
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '文字を認識できませんでした。';
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '文字が検出されませんでした。';
         resultArea.value = text;
       } catch (err) {
-        alert('OCRエラー: ' + err.message);
-        resultArea.value = 'エラー: ' + err.message;
+        showNotice('error', 'OCR実行エラー', err.message);
+        resultArea.value = 'エラーが発生しました:\n' + err.message + '\n\n【対処法】\n・APIキーが正しく入力されているか確認してください。\n・モデル選択で「gemini-2.0-flash」または「gemini-1.5-flash」を試してください。\n・ブラウザの広告ブロック拡張機能が通信を遮断していないか確認してください。';
       } finally {
         runBtn.disabled = false;
         runBtn.textContent = '文字起こしを開始';
@@ -367,23 +470,22 @@
       }
 
       const canvas = document.createElement('canvas');
-      canvas.width = 800;
-      canvas.height = 1000;
+      canvas.width = 600;
+      canvas.height = 750;
       const ctx = canvas.getContext('2d');
       const img = new Image();
-      const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
+      const svgBase64 = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
       img.onload = () => {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/png');
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
         base64Data = dataUrl.split(',')[1] || '';
-        mimeType = 'image/png';
+        mimeType = 'image/jpeg';
         showWorkspace(dataUrl, title);
         setMode(mode);
       };
-      img.src = url;
+      img.src = svgBase64;
     }
   </script>
 </body>
