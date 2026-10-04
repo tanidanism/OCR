@@ -114,9 +114,8 @@
           <div class="flex items-center gap-1.5 text-xs text-slate-400">
             <span>使用モデル:</span>
             <select id="model-select" class="bg-slate-950 border border-slate-700 text-white rounded px-2 py-0.5 text-xs focus:outline-none">
-              <option value="gemini-2.5-flash">gemini-2.5-flash (推奨・高速高精度)</option>
-              <option value="gemini-2.0-flash">gemini-2.0-flash</option>
-              <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+              <option value="gemini-3.8-flash">gemini-3.8-flash (最新・推奨)</option>
+              <option value="gemini-flash-latest">gemini-flash-latest</option>
             </select>
           </div>
         </div>
@@ -230,8 +229,12 @@
       btn.textContent = '通信テスト中...';
 
       try {
-        const testUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${key}`;
-        const res = await fetch(testUrl);
+        const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${key}`;
+        const res = await fetch(testUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: 'ping' }] }] })
+        });
         const data = await res.json();
 
         if (data.error) {
@@ -239,7 +242,7 @@
         }
 
         localStorage.setItem('gemini_api_key', key);
-        showNotice('success', '接続成功', 'Gemini APIキーの疎通確認が完了し、ブラウザに保存されました！');
+        showNotice('success', '接続成功', 'Gemini 3.8 Flash との疎通確認に成功しました！APIキーをブラウザに保存しました。');
       } catch (err) {
         showNotice('error', 'APIキー接続エラー', err.message + ' (APIキーが正しいか確認してください)');
       } finally {
@@ -282,12 +285,11 @@
       }
     });
 
-    // 高解像度写真の場合、APIの送信制限を超えないよう自動で適正サイズにリサイズ
     function handleFile(file) {
       hideNotice();
       mimeType = file.type || 'image/png';
 
-      // PDFの場合はそのままBase64化
+      // PDFの場合
       if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -369,7 +371,7 @@
 
       const runBtn = document.getElementById('run-btn');
       const resultArea = document.getElementById('result');
-      const selectedModel = document.getElementById('model-select').value;
+      const selectedModel = document.getElementById('model-select').value || 'gemini-3.8-flash';
       runBtn.disabled = true;
       runBtn.textContent = '解析中...';
       resultArea.value = 'Gemini で高精度解析中...';
@@ -424,7 +426,7 @@
         resultArea.value = text;
       } catch (err) {
         showNotice('error', 'OCR実行エラー', err.message);
-        resultArea.value = 'エラーが発生しました:\n' + err.message + '\n\n【対処法】\n・APIキーが正しく入力されているか確認してください。\n・モデル選択で「gemini-2.0-flash」または「gemini-1.5-flash」を試してください。\n・ブラウザの広告ブロック拡張機能が通信を遮断していないか確認してください。';
+        resultArea.value = 'エラーが発生しました:\n' + err.message + '\n\n【対処法】\n・APIキーが正しく入力されているか「保存＆接続テスト」でご確認ください。\n・モデル選択で「gemini-flash-latest」もお試しください。';
       } finally {
         runBtn.disabled = false;
         runBtn.textContent = '文字起こしを開始';
