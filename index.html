@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI OCR Studio - GitHub Pages対応版 (PDF＆写真・古文書・手書き文字起こし)</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', 'Noto Sans JP', sans-serif; }
+    code, pre, kbd { font-family: 'JetBrains Mono', monospace; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #6366f1; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col p-4 sm:p-8 antialiased selection:bg-indigo-500/30 selection:text-indigo-200">
+
+  <!-- ヘッダー -->
+  <header class="max-w-6xl w-full mx-auto flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-slate-800">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+        <span class="text-xl">✨</span>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-lg lg:text-xl font-bold text-white">AI OCR Studio</h1>
+          <span class="px-2 py-0.5 text-[10px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+            GitHub Pages 完全対応
+          </span>
+        </div>
+        <p class="text-xs text-slate-400">PDF・写真・手書き・古文書（くずし字）文字起こし Webアプリ</p>
+      </div>
+    </div>
+
+    <!-- APIキー設定エリア -->
+    <div class="flex items-center gap-2 bg-slate-900 border border-slate-800 p-2 rounded-xl text-xs">
+      <span class="text-slate-400 font-semibold pl-1">Gemini APIキー:</span>
+      <input type="password" id="api-key-input" placeholder="AI StudioのAPIキーを入力" class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 w-44 sm:w-56 font-mono">
+      <button onclick="saveApiKey()" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition">
+        保存
+      </button>
+      <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-indigo-400 hover:underline text-[11px] px-1" title="無料キーを取得">取得(無料)</a>
+    </div>
+  </header>
+
+  <!-- メインコンテンツ -->
+  <main class="max-w-6xl w-full mx-auto flex-1 flex flex-col gap-6 pt-6">
+
+    <!-- ファイル選択＆ドラッグ＆ドロップ -->
+    <div id="dropzone-section" class="w-full flex flex-col gap-6">
+      <div id="dropzone" class="border-2 border-dashed border-slate-700 hover:border-indigo-400 bg-slate-900/50 hover:bg-slate-900/80 rounded-3xl p-8 sm:p-12 text-center cursor-pointer transition flex flex-col items-center justify-center">
+        <input type="file" id="file-input" accept="image/*,application/pdf" class="hidden">
+        <div class="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center mb-4 text-3xl">
+          📄
+        </div>
+        <h2 class="text-lg sm:text-xl font-bold text-white mb-2">PDFまたは画像をドラッグ＆ドロップ</h2>
+        <p class="text-xs sm:text-sm text-slate-400 max-w-md mb-6 leading-relaxed">
+          クリックしてファイル選択、またはクリップボードから直接貼り付け（<kbd class="px-1.5 py-0.5 text-xs bg-slate-800 border border-slate-700 rounded text-slate-300">Ctrl+V</kbd>）できます。
+        </p>
+        <button type="button" onclick="document.getElementById('file-input').click()" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-lg shadow-indigo-500/25 transition">
+          ファイルを選択
+        </button>
+      </div>
+
+      <!-- サンプル書類でテスト -->
+      <div class="flex flex-col gap-2.5">
+        <h3 class="text-xs sm:text-sm font-bold text-slate-300">サンプル書類で即座にテスト（1クリック）:</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <button onclick="loadSample('kuzushiji')" class="p-3.5 rounded-2xl bg-slate-900/70 hover:bg-slate-800 border border-amber-500/30 text-left transition">
+            <span class="text-[10px] font-bold text-amber-300 px-2 py-0.5 bg-amber-500/10 rounded">古文書・くずし字</span>
+            <h4 class="text-xs font-bold text-white mt-1.5 mb-0.5">江戸時代 通行手形</h4>
+            <p class="text-[11px] text-slate-400">くずし字・変体仮名を翻刻＋現代語訳</p>
+          </button>
+          <button onclick="loadSample('handwriting')" class="p-3.5 rounded-2xl bg-slate-900/70 hover:bg-slate-800 border border-sky-500/30 text-left transition">
+            <span class="text-[10px] font-bold text-sky-300 px-2 py-0.5 bg-sky-500/10 rounded">手書きメモ</span>
+            <h4 class="text-xs font-bold text-white mt-1.5 mb-0.5">手書き会議ノート</h4>
+            <p class="text-[11px] text-slate-400">ノートの走り書き・ToDo・略字補正</p>
+          </button>
+          <button onclick="loadSample('receipt')" class="p-3.5 rounded-2xl bg-slate-900/70 hover:bg-slate-800 border border-indigo-500/30 text-left transition">
+            <span class="text-[10px] font-bold text-indigo-300 px-2 py-0.5 bg-indigo-500/10 rounded">レシート・領収書</span>
+            <h4 class="text-xs font-bold text-white mt-1.5 mb-0.5">コンビニ領収書</h4>
+            <p class="text-[11px] text-slate-400">店名・品目リスト・税抜・合計額</p>
+          </button>
+          <button onclick="loadSample('table')" class="p-3.5 rounded-2xl bg-slate-900/70 hover:bg-slate-800 border border-emerald-500/30 text-left transition">
+            <span class="text-[10px] font-bold text-emerald-300 px-2 py-0.5 bg-emerald-500/10 rounded">表・CSV</span>
+            <h4 class="text-xs font-bold text-white mt-1.5 mb-0.5">スペック比較仕様書</h4>
+            <p class="text-[11px] text-slate-400">多列の表組みデータをMarkdown＆CSV化</p>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ワークスペース (左右分割画面) -->
+    <div id="workspace-section" class="hidden flex-col gap-6">
+
+      <!-- モード選択ツールバー -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col gap-3 shadow-xl">
+        <label class="text-xs font-bold text-slate-300">抽出モードを選択:</label>
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+          <button onclick="setMode('standard')" id="btn-standard" class="mode-btn p-2 rounded-xl border border-indigo-500 bg-indigo-600/20 text-xs text-white font-semibold text-left">標準忠実再現</button>
+          <button onclick="setMode('kuzushiji')" id="btn-kuzushiji" class="mode-btn p-2 rounded-xl border border-slate-800 bg-slate-950 text-xs text-slate-300 font-semibold text-left">古文書・くずし字</button>
+          <button onclick="setMode('handwriting')" id="btn-handwriting" class="mode-btn p-2 rounded-xl border border-slate-800 bg-slate-950 text-xs text-slate-300 font-semibold text-left">手書きメモ</button>
+          <button onclick="setMode('table')" id="btn-table" class="mode-btn p-2 rounded-xl border border-slate-800 bg-slate-950 text-xs text-slate-300 font-semibold text-left">表・CSV抽出</button>
+          <button onclick="setMode('key_value')" id="btn-key_value" class="mode-btn p-2 rounded-xl border border-slate-800 bg-slate-950 text-xs text-slate-300 font-semibold text-left">JSON構造化</button>
+          <button onclick="setMode('markdown')" id="btn-markdown" class="mode-btn p-2 rounded-xl border border-slate-800 bg-slate-950 text-xs text-slate-300 font-semibold text-left">Markdown</button>
+          <button onclick="setMode('ruby_furigana')" id="btn-ruby_furigana" class="mode-btn p-2 rounded-xl border border-slate-800 bg-slate-950 text-xs text-slate-300 font-semibold text-left">縦書き・ルビ</button>
+          <button onclick="setMode('translate')" id="btn-translate" class="mode-btn p-2 rounded-xl border border-slate-800 bg-slate-950 text-xs text-slate-300 font-semibold text-left">文字起こし＋訳</button>
+        </div>
+
+        <div class="flex items-center justify-between pt-2 border-t border-slate-800">
+          <span class="text-xs text-slate-400">Ctrl + Enter で即座に実行できます</span>
+          <button id="run-btn" onclick="executeDirectOcr()" class="px-7 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-lg shadow-indigo-500/25 transition">
+            文字起こしを開始
+          </button>
+        </div>
+      </div>
+
+      <!-- 左右2分割プレビュー -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+        
+        <!-- 左：元画像プレビュー -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl flex flex-col min-h-[480px]">
+          <div class="p-3 border-b border-slate-800 text-xs flex justify-between items-center text-slate-400">
+            <span id="doc-title" class="font-semibold text-slate-200 truncate max-w-xs">プレビュー</span>
+            <div class="space-x-1">
+              <button onclick="rotate(-90)" class="px-2 py-1 bg-slate-800 rounded hover:text-white">↺ 90°</button>
+              <button onclick="rotate(90)" class="px-2 py-1 bg-slate-800 rounded hover:text-white">↻ 90°</button>
+              <button onclick="resetDoc()" class="px-2 py-1 text-rose-400 hover:bg-rose-500/10 rounded ml-2">変更</button>
+            </div>
+          </div>
+          <div class="flex-1 bg-slate-950 p-4 flex items-center justify-center overflow-auto">
+            <img id="preview" src="" alt="" class="max-h-[500px] max-w-full object-contain transition-transform duration-200">
+          </div>
+        </div>
+
+        <!-- 右：抽出テキストエディタ -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl flex flex-col min-h-[480px]">
+          <div class="p-3 border-b border-slate-800 text-xs flex justify-between items-center">
+            <span class="font-semibold text-slate-300">抽出テキスト結果</span>
+            <div class="space-x-2">
+              <button onclick="copyText()" id="copy-btn" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-200 font-semibold transition">
+                コピー
+              </button>
+              <button onclick="downloadText()" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white font-semibold transition">
+                保存 (.txt)
+              </button>
+            </div>
+          </div>
+          <div class="flex-1 p-4 bg-slate-950 flex flex-col">
+            <textarea id="result" class="w-full flex-1 bg-transparent text-slate-100 font-mono text-xs sm:text-sm leading-relaxed resize-none focus:outline-none" placeholder="文字起こし結果がここに表示されます..."></textarea>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <script>
+    let base64Data = '';
+    let mimeType = 'image/png';
+    let currentMode = 'standard';
+    let rotation = 0;
+
+    // ローカルストレージからAPIキーを読み込み
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedKey = localStorage.getItem('gemini_api_key');
+      if (savedKey) document.getElementById('api-key-input').value = savedKey;
+    });
+
+    function saveApiKey() {
+      const key = document.getElementById('api-key-input').value.trim();
+      if (!key) {
+        alert('APIキーを入力してください。');
+        return;
+      }
+      localStorage.setItem('gemini_api_key', key);
+      alert('APIキーをブラウザに保存しました！');
+    }
+
+    function setMode(mode) {
+      currentMode = mode;
+      document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.className = 'mode-btn p-2 rounded-xl border border-slate-800 bg-slate-950 text-xs text-slate-300 font-semibold text-left';
+      });
+      document.getElementById('btn-' + mode).className = 'mode-btn p-2 rounded-xl border border-indigo-500 bg-indigo-600/20 text-xs text-white font-semibold text-left';
+    }
+
+    const fileInput = document.getElementById('file-input');
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]);
+    });
+
+    const dropzone = document.getElementById('dropzone');
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('border-indigo-400'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('border-indigo-400'));
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('border-indigo-400');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+    });
+
+    window.addEventListener('paste', (e) => {
+      if (e.clipboardData && e.clipboardData.files.length > 0) {
+        handleFile(e.clipboardData.files[0]);
+      }
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        executeDirectOcr();
+      }
+    });
+
+    function handleFile(file) {
+      mimeType = file.type || 'image/png';
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        base64Data = e.target.result.split(',')[1] || '';
+        showWorkspace(e.target.result, file.name);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function showWorkspace(dataUrl, name) {
+      document.getElementById('dropzone-section').classList.add('hidden');
+      document.getElementById('workspace-section').classList.remove('hidden');
+      document.getElementById('workspace-section').classList.add('flex');
+      const preview = document.getElementById('preview');
+      preview.src = dataUrl;
+      document.getElementById('doc-title').textContent = name;
+      rotation = 0;
+      preview.style.transform = `rotate(0deg)`;
+    }
+
+    function resetDoc() {
+      document.getElementById('workspace-section').classList.add('hidden');
+      document.getElementById('workspace-section').classList.remove('flex');
+      document.getElementById('dropzone-section').classList.remove('hidden');
+      document.getElementById('result').value = '';
+    }
+
+    function rotate(deg) {
+      rotation = (rotation + deg) % 360;
+      document.getElementById('preview').style.transform = `rotate(${rotation}deg)`;
+    }
+
+    // Google Gemini REST API をブラウザから直接呼び出し (サーバー不要！)
+    async function executeDirectOcr() {
+      const apiKey = document.getElementById('api-key-input').value.trim() || localStorage.getItem('gemini_api_key');
+      if (!apiKey) {
+        alert('右上の入力欄に Gemini APIキー を入力して「保存」してください。\n(Google AI Studio で無料ですぐに取得できます)');
+        document.getElementById('api-key-input').focus();
+        return;
+      }
+      if (!base64Data) {
+        alert('PDFまたは画像ファイルを選択してください。');
+        return;
+      }
+
+      const runBtn = document.getElementById('run-btn');
+      const resultArea = document.getElementById('result');
+      runBtn.disabled = true;
+      runBtn.textContent = '解析中...';
+      resultArea.value = 'Gemini 3.8 Flash で解析しています...';
+
+      // モード別システム指示
+      let systemInstruction = "あなたは高精度のOCR解析AIです。画像やPDFの文字を漏れなく正確にテキスト化してください。";
+      let userPrompt = "この画像/文書の文字を起こしてください。";
+
+      if (currentMode === 'kuzushiji') {
+        systemInstruction = "あなたは日本の古文書学・翻刻の専門家です。くずし字・変体仮名を精密に翻刻し、【翻刻】、【現代語訳】、【語注・時代背景解説】の3部構成で丁寧に出力してください。";
+        userPrompt = "この古文書・くずし字を解読し、翻刻、現代語訳、語注を出力してください。";
+      } else if (currentMode === 'handwriting') {
+        systemInstruction = "あなたは手書き文字解析のスペシャリストです。ノートやホワイトボードの乱筆・続け字・略字・ToDoリストを文脈から正しく補正してテキスト化してください。";
+      } else if (currentMode === 'table') {
+        systemInstruction = "画像内の表組みや明細データをMarkdown表形式 (| 列1 | 列2 | ...) に整形して出力してください。";
+      } else if (currentMode === 'key_value') {
+        systemInstruction = "書類の主要項目を整理し、最後に ```json ... ``` 形式で構造化JSONを出力してください。";
+      } else if (currentMode === 'markdown') {
+        systemInstruction = "見出し(#)、箇条書き(-)、リスト、太字等を使って読みやすいMarkdown形式で出力してください。";
+      } else if (currentMode === 'ruby_furigana') {
+        systemInstruction = "縦書きやルビ(ふりがな)を正確に文字起こししてください。ふりがなは 漢字(かんじ) の形式で付与してください。";
+      } else if (currentMode === 'translate') {
+        systemInstruction = "原文の文字起こしを出力した後、区切り線(---)を挟んで自然な日本語訳または英訳を出力してください。";
+      }
+
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        const payload = {
+          systemInstruction: { parts: [{ text: systemInstruction }] },
+          contents: [
+            {
+              parts: [
+                { inlineData: { mimeType: mimeType, data: base64Data } },
+                { text: userPrompt }
+              ]
+            }
+          ],
+          generationConfig: { temperature: 0.1 }
+        };
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        if (data.error) {
+          throw new Error(data.error.message || 'APIエラーが発生しました');
+        }
+
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '文字を認識できませんでした。';
+        resultArea.value = text;
+      } catch (err) {
+        alert('OCRエラー: ' + err.message);
+        resultArea.value = 'エラー: ' + err.message;
+      } finally {
+        runBtn.disabled = false;
+        runBtn.textContent = '文字起こしを開始';
+      }
+    }
+
+    function copyText() {
+      navigator.clipboard.writeText(document.getElementById('result').value).then(() => {
+        const btn = document.getElementById('copy-btn');
+        btn.textContent = '完了!';
+        setTimeout(() => btn.textContent = 'コピー', 1500);
+      });
+    }
+
+    function downloadText() {
+      const text = document.getElementById('result').value;
+      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `ocr_result_${Date.now()}.txt`;
+      a.click();
+    }
+
+    // サンプル書類のロード
+    function loadSample(type) {
+      let title = '', mode = 'standard', svg = '';
+      if (type === 'kuzushiji') {
+        title = '江戸時代 通行手形';
+        mode = 'kuzushiji';
+        svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 650"><rect width="500" height="650" fill="#f4ebd9"/><text x="450" y="80" font-size="20" font-weight="bold" writing-mode="vertical-rl">為取替申手形之事</text><text x="390" y="100" font-size="16" writing-mode="vertical-rl">一、武州葛飾郡本田村百姓 徳次郎</text><text x="330" y="100" font-size="16" writing-mode="vertical-rl">右者伊勢両宮参宮並金毘羅大権現へ参詣之志立罷出候、</text><text x="270" y="100" font-size="16" writing-mode="vertical-rl">関所並諸国番所無滞御通し被下度候、相違無御座候</text><text x="200" y="240" font-size="15" writing-mode="vertical-rl">文政八年 酉三月 名主 伝右衛門</text></svg>`;
+      } else if (type === 'handwriting') {
+        title = '手書き会議メモ';
+        mode = 'handwriting';
+        svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500"><rect width="500" height="500" fill="#fffdfa"/><text x="50" y="60" font-size="20" font-weight="bold" fill="#1e3a8a">10/4 定例MTG 議事メモ</text><text x="50" y="110" font-size="16" fill="#333">• くずし字・古文書モードの追加検証</text><text x="50" y="150" font-size="16" fill="#333">• 手書きホワイトボードの認識率向上</text><text x="50" y="200" font-size="15" fill="#c2410c">[x] 翻刻プロンプトの調整</text><text x="50" y="240" font-size="15" fill="#c2410c">[ ] 10/11 次回MTG準備</text></svg>`;
+      } else if (type === 'receipt') {
+        title = 'コンビニ領収書';
+        mode = 'key_value';
+        svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><rect width="400" height="500" fill="#fff"/><text x="200" y="50" font-size="18" font-weight="bold" text-anchor="middle">ファミリーマート 渋谷店</text><text x="50" y="120" font-size="14">カフェラテ (L)  ¥280</text><text x="50" y="160" font-size="14">鮭おにぎり  ¥340</text><text x="50" y="230" font-size="16" font-weight="bold">合計金額  ¥620</text></svg>`;
+      } else {
+        title = 'スペック仕様表';
+        mode = 'table';
+        svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 400"><rect width="500" height="400" fill="#fff"/><text x="250" y="50" font-size="18" font-weight="bold" text-anchor="middle">スペック仕様書</text><text x="50" y="100" font-size="13">項目 | Model A | Model B</text><text x="50" y="140" font-size="13">CPU | 8コア | 12コア</text><text x="50" y="180" font-size="13">RAM | 16GB | 32GB</text></svg>`;
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 800;
+      canvas.height = 1000;
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      img.onload = () => {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/png');
+        base64Data = dataUrl.split(',')[1] || '';
+        mimeType = 'image/png';
+        showWorkspace(dataUrl, title);
+        setMode(mode);
+      };
+      img.src = url;
+    }
+  </script>
+</body>
+</html>
