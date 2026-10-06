@@ -112,10 +112,11 @@
         <div class="flex items-center justify-between">
           <label class="text-xs font-bold text-slate-300">抽出モードを選択:</label>
           <div class="flex items-center gap-1.5 text-xs text-slate-400">
-            <span>使用モデル:</span>
+            <span>モデル:</span>
             <select id="model-select" class="bg-slate-950 border border-slate-700 text-white rounded px-2 py-0.5 text-xs focus:outline-none">
-              <option value="gemini-3.8-flash">gemini-3.8-flash (最新・推奨)</option>
-              <option value="gemini-flash-latest">gemini-flash-latest</option>
+              <option value="gemini-3.5-flash">gemini-3.5-flash (高速・安定OCR / 2〜3秒)</option>
+              <option value="gemini-flash-lite-latest">gemini-flash-lite-latest (超高速 / 1〜2秒)</option>
+              <option value="gemini-3.8-flash">gemini-3.8-flash (思考モデル・高精度)</option>
             </select>
           </div>
         </div>
@@ -153,9 +154,7 @@
             </div>
           </div>
           <div class="flex-1 bg-slate-950 p-4 flex items-center justify-center overflow-auto min-h-[420px]">
-            <!-- 画像用要素 -->
             <img id="preview-img" src="" alt="プレビュー" class="max-h-[500px] max-w-full object-contain transition-transform duration-200 block shadow-md rounded">
-            <!-- PDF用要素 -->
             <iframe id="preview-pdf" src="" class="w-full h-full min-h-[480px] rounded-lg hidden border border-slate-800 bg-white"></iframe>
           </div>
         </div>
@@ -186,7 +185,7 @@
 
   <script>
     let base64Data = '';
-    let mimeType = 'image/png';
+    let mimeType = 'image/jpeg';
     let currentMode = 'standard';
     let rotation = 0;
     let currentBlobUrl = null;
@@ -222,7 +221,7 @@
 
     // APIキーの接続テストと保存
     async function testAndSaveApiKey() {
-      const key = document.getElementById('api-key-input').value.trim();
+      const key = (document.getElementById('api-key-input').value || '').trim().replace(/["']/g, '');
       if (!key) {
         showNotice('error', 'APIキー未入力', 'Google AI Studio で取得したAPIキーを入力してください。');
         return;
@@ -233,7 +232,7 @@
       btn.textContent = '通信テスト中...';
 
       try {
-        const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${key}`;
+        const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`;
         const res = await fetch(testUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -242,13 +241,13 @@
         const data = await res.json();
 
         if (data.error) {
-          throw new Error(data.error.message || 'APIキーが無効です');
+          throw new Error(data.error.message || `エラー (${data.error.code})`);
         }
 
         localStorage.setItem('gemini_api_key', key);
-        showNotice('success', '接続成功', 'Gemini 3.8 Flash との疎通確認に成功しました！APIキーをブラウザに保存しました。');
+        showNotice('success', '接続成功', 'Gemini API との疎通確認が完了しました！APIキーをブラウザに保存しました。');
       } catch (err) {
-        showNotice('error', 'APIキー接続エラー', err.message + ' (APIキーが正しいか確認してください)');
+        showNotice('error', 'APIキー接続エラー', err.message);
       } finally {
         btn.disabled = false;
         btn.textContent = '保存＆接続テスト';
@@ -291,32 +290,33 @@
       }
     });
 
-    // ファイル読み込み＆即時プレビュー表示
+    // ファイル読み込み＆適正サイズ変換（通信失敗を防ぐ）
     function handleFile(file) {
       hideNotice();
-      mimeType = file.type || 'image/png';
       const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 
-      // 既存のObjectURLがあれば解放
       if (currentBlobUrl) {
         URL.revokeObjectURL(currentBlobUrl);
       }
       currentBlobUrl = URL.createObjectURL(file);
-
-      // プレビューを即座に表示
       showWorkspace(currentBlobUrl, file.name, isPdf);
 
-      // Gemini 送信用に Base64 を読み込む
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const fullResult = e.target.result;
-        base64Data = fullResult.split(',')[1] || '';
-
-        // 高解像度写真（5MB超）の場合はバックグラウンドで適正サイズに圧縮
-        if (!isPdf && file.size > 3 * 1024 * 1024) {
+      if (isPdf) {
+        mimeType = 'application/pdf';
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const raw = e.target.result;
+          base64Data = (raw.split(',')[1] || '').replace(/[\r\n\s]/g, '');
+        };
+        reader.readAsDataURL(file);
+      } else {
+        // 画像は即座にCanvasで最大1600px・約300KBのJPEGに自動変換（APIのタイムアウトと容量上限を100%回避）
+        mimeType = 'image/jpeg';
+        const reader = new FileReader();
+        reader.onload = (e) => {
           const img = new Image();
           img.onload = () => {
-            const maxDim = 2048;
+            const maxDim = 1600;
             let w = img.width, h = img.height;
             if (w > maxDim || h > maxDim) {
               if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
@@ -325,15 +325,16 @@
             const canvas = document.createElement('canvas');
             canvas.width = w; canvas.height = h;
             const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, w, h);
             ctx.drawImage(img, 0, 0, w, h);
-            const comp = canvas.toDataURL('image/jpeg', 0.9);
-            base64Data = comp.split(',')[1] || '';
-            mimeType = 'image/jpeg';
+            const optimized = canvas.toDataURL('image/jpeg', 0.88);
+            base64Data = (optimized.split(',')[1] || '').replace(/[\r\n\s]/g, '');
           };
-          img.src = fullResult;
-        }
-      };
-      reader.readAsDataURL(file);
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
     }
 
     function showWorkspace(url, name, isPdf = false) {
@@ -382,26 +383,26 @@
       imgEl.style.transform = `rotate(${rotation}deg)`;
     }
 
-    // Google Gemini REST API 実行
+    // Google Gemini REST API 実行 (高速＆自動リトライ付き)
     async function executeDirectOcr() {
       hideNotice();
-      const apiKey = document.getElementById('api-key-input').value.trim() || localStorage.getItem('gemini_api_key');
+      const apiKey = (document.getElementById('api-key-input').value || localStorage.getItem('gemini_api_key') || '').trim().replace(/["']/g, '');
       if (!apiKey) {
         showNotice('error', 'APIキー未設定', '右上の入力欄に Gemini APIキー を入力して「保存」してください。');
         document.getElementById('api-key-input').focus();
         return;
       }
       if (!base64Data) {
-        showNotice('error', 'ファイル未選択', 'PDFまたは画像ファイルを選択してください。');
+        showNotice('error', 'ファイル未選択', 'ファイルがまだ読み込まれていません。画像を選択してください。');
         return;
       }
 
       const runBtn = document.getElementById('run-btn');
       const resultArea = document.getElementById('result');
-      const selectedModel = document.getElementById('model-select').value || 'gemini-3.8-flash';
+      const selectedModel = document.getElementById('model-select').value || 'gemini-3.5-flash';
       runBtn.disabled = true;
       runBtn.textContent = '解析中...';
-      resultArea.value = 'Gemini で高精度解析中...';
+      resultArea.value = 'Gemini で高精度解析中（約2〜3秒）...';
 
       let systemInstruction = "あなたは高精度のOCR解析AIです。画像やPDFの文字を漏れなく正確にテキスト化してください。";
       let userPrompt = "この文書または画像に書かれているすべての文字を漏れなく高精度にテキスト化してください。";
@@ -423,41 +424,71 @@
         systemInstruction = "原文の文字起こしを出力した後、区切り線(---)を挟んで日本語訳または英訳を出力してください。";
       }
 
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
-        const payload = {
-          systemInstruction: { parts: [{ text: systemInstruction }] },
-          contents: [
-            {
-              parts: [
-                { inlineData: { mimeType: mimeType, data: base64Data } },
-                { text: userPrompt }
-              ]
-            }
-          ],
-          generationConfig: { temperature: 0.1 }
-        };
+      const payload = {
+        systemInstruction: { parts: [{ text: systemInstruction }] },
+        contents: [
+          {
+            parts: [
+              { inlineData: { mimeType: mimeType, data: base64Data } },
+              { text: userPrompt }
+            ]
+          }
+        ],
+        generationConfig: { temperature: 0.1 }
+      };
 
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
+      // 試行するモデルの優先順序（選択モデル -> 失敗時は超高速モデルに自動フォールバック）
+      const modelsToTry = [selectedModel];
+      if (selectedModel !== 'gemini-flash-lite-latest') modelsToTry.push('gemini-flash-lite-latest');
+      if (selectedModel !== 'gemini-3.5-flash') modelsToTry.push('gemini-3.5-flash');
 
-        const data = await response.json();
-        if (data.error) {
-          throw new Error(data.error.message || `APIエラー (コード: ${data.error.code})`);
+      let lastError = null;
+
+      for (const model of modelsToTry) {
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          const data = await response.json();
+          if (data.error) {
+            throw new Error(`[${model}] ${data.error.message || 'APIエラー'} (コード: ${data.error.code})`);
+          }
+
+          const candidate = data.candidates?.[0];
+          if (!candidate) {
+            throw new Error('モデルから応答候補が返されませんでした');
+          }
+          if (candidate.finishReason === 'SAFETY') {
+            throw new Error('セーフティフィルターによりブロックされました');
+          }
+
+          const parts = candidate.content?.parts || [];
+          const text = parts.map(p => p.text).filter(Boolean).join('\n') || '文字が検出されませんでした。';
+
+          resultArea.value = text;
+          lastError = null;
+          break; // 成功したので終了
+        } catch (err) {
+          lastError = err;
+          console.warn(`Model ${model} failed, trying next...`, err);
         }
-
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '文字が検出されませんでした。';
-        resultArea.value = text;
-      } catch (err) {
-        showNotice('error', 'OCR実行エラー', err.message);
-        resultArea.value = 'エラーが発生しました:\n' + err.message + '\n\n【対処法】\n・APIキーが正しく入力されているか「保存＆接続テスト」でご確認ください。\n・モデル選択で「gemini-flash-latest」もお試しください。';
-      } finally {
-        runBtn.disabled = false;
-        runBtn.textContent = '文字起こしを開始';
       }
+
+      if (lastError) {
+        let msg = lastError.message;
+        if (msg.includes('Failed to fetch')) {
+          msg = '通信に失敗しました。ブラウザの広告ブロック拡張機能（Brave Shields、uBlock等）が遮断していないかご確認ください。';
+        }
+        showNotice('error', '文字起こしエラー', msg);
+        resultArea.value = 'エラーが発生しました:\n' + msg + '\n\n【確認事項】\n1. APIキーが正しく入力されているか右上の「保存＆接続テスト」をご確認ください。\n2. ブラウザの広告ブロック拡張機能をオフにして再度お試しください。';
+      }
+
+      runBtn.disabled = false;
+      runBtn.textContent = '文字起こしを開始';
     }
 
     function copyText() {
@@ -477,7 +508,7 @@
       a.click();
     }
 
-    // サンプル書類のロード（Canvas直接描画で100%確実に即時プレビュー表示）
+    // サンプル書類のロード
     function loadSample(type) {
       const canvas = document.createElement('canvas');
       canvas.width = 600;
@@ -489,13 +520,11 @@
       if (type === 'kuzushiji') {
         title = '江戸時代 通行手形 (古文書サンプル)';
         mode = 'kuzushiji';
-        // 和紙背景
         ctx.fillStyle = '#f4ebd9';
         ctx.fillRect(0, 0, 600, 700);
         ctx.strokeStyle = '#d7c7af';
         ctx.strokeRect(10, 10, 580, 680);
 
-        // 墨文字
         ctx.fillStyle = '#1e1c1a';
         ctx.font = 'bold 26px serif';
         ctx.fillText('為取替申手形之事', 180, 80);
@@ -506,7 +535,6 @@
         ctx.fillText('関所並諸国番所無滞御通し被下度候、相違無御座候', 80, 290);
         ctx.fillText('文政八年 酉三月 名主 伝右衛門 (印)', 140, 420);
 
-        // 朱印
         ctx.strokeStyle = '#dc2626';
         ctx.lineWidth = 3;
         ctx.strokeRect(450, 380, 50, 50);
@@ -518,7 +546,6 @@
         mode = 'handwriting';
         ctx.fillStyle = '#fffdfa';
         ctx.fillRect(0, 0, 600, 700);
-        // ノートの罫線
         ctx.strokeStyle = '#e2e8f0';
         for (let y = 80; y < 650; y += 40) {
           ctx.beginPath(); ctx.moveTo(40, y); ctx.lineTo(560, y); ctx.stroke();
@@ -562,7 +589,6 @@
         ctx.font = 'bold 22px sans-serif';
         ctx.fillText('サーバー仕様・性能比較一覧表', 50, 60);
 
-        // 表の描画
         ctx.strokeStyle = '#94a3b8';
         ctx.strokeRect(50, 100, 500, 240);
         ctx.beginPath();
@@ -585,7 +611,7 @@
       }
 
       const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-      base64Data = dataUrl.split(',')[1] || '';
+      base64Data = (dataUrl.split(',')[1] || '').replace(/[\r\n\s]/g, '');
       mimeType = 'image/jpeg';
       showWorkspace(dataUrl, title, false);
       setMode(mode);
