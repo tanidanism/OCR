@@ -109,15 +109,15 @@
 
       <!-- モード選択ツールバー -->
       <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col gap-3 shadow-xl">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-wrap items-center justify-between gap-2">
           <label class="text-xs font-bold text-slate-300">抽出モードを選択:</label>
           <div class="flex items-center gap-1.5 text-xs text-slate-400">
             <span>AIモデル:</span>
-            <select id="model-select" class="bg-slate-950 border border-slate-700 text-white rounded px-2 py-0.5 text-xs focus:outline-none">
-              <option value="auto">自動 (最も空いている高速モデルを選択 / 推奨)</option>
+            <select id="model-select" class="bg-slate-950 border border-slate-700 text-white rounded px-2.5 py-1 text-xs focus:outline-none focus:border-indigo-500">
+              <option value="gemini-3.8-flash">gemini-3.8-flash (思考推論・最高精度OCR)</option>
               <option value="gemini-flash-lite-latest">gemini-flash-lite (最速・混雑なし / 1.5秒)</option>
-              <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite (高可用性)</option>
-              <option value="gemini-3.5-flash">gemini-3.5-flash (標準)</option>
+              <option value="gemini-3.5-flash">gemini-3.5-flash (標準高速 / 2〜3秒)</option>
+              <option value="auto">自動 (混雑回避・最適モデル自動選択)</option>
             </select>
           </div>
         </div>
@@ -311,7 +311,6 @@
         };
         reader.readAsDataURL(file);
       } else {
-        // 画像は即座にCanvasで最大1600px・約300KBのJPEGに自動変換（APIのタイムアウトと容量上限を100%回避）
         mimeType = 'image/jpeg';
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -384,7 +383,7 @@
       imgEl.style.transform = `rotate(${rotation}deg)`;
     }
 
-    // Google Gemini REST API 実行 (超高速モデル優先＆多段フェイルオーバー)
+    // Google Gemini REST API 実行 (gemini-3.8-flash 対応)
     async function executeDirectOcr() {
       hideNotice();
       const apiKey = (document.getElementById('api-key-input').value || localStorage.getItem('gemini_api_key') || '').trim().replace(/["']/g, '');
@@ -400,10 +399,15 @@
 
       const runBtn = document.getElementById('run-btn');
       const resultArea = document.getElementById('result');
-      const selectVal = document.getElementById('model-select').value;
+      const selectedModel = document.getElementById('model-select').value;
       runBtn.disabled = true;
       runBtn.textContent = '解析中...';
-      resultArea.value = 'Gemini で高速解析中（約1〜2秒）...';
+
+      if (selectedModel === 'gemini-3.8-flash') {
+        resultArea.value = 'Gemini 3.8 Flash で思考推論中... (深層解析のため15〜25秒ほどお待ちください)';
+      } else {
+        resultArea.value = 'Gemini で高速解析中...';
+      }
 
       let systemInstruction = "あなたは高精度のOCR解析AIです。画像やPDFの文字を漏れなく正確にテキスト化してください。";
       let userPrompt = "この文書または画像に書かれているすべての文字を漏れなく高精度にテキスト化してください。";
@@ -438,17 +442,14 @@
         generationConfig: { temperature: 0.1 }
       };
 
-      // 混雑(high demand)を自動回避するモデルキュー
-      // flash-lite は Google 側で最も混雑しない超軽量・専用帯域モデル
-      let candidateModels = [
-        'gemini-flash-lite-latest',
-        'gemini-3.5-flash-lite',
-        'gemini-3.1-flash-lite',
-        'gemini-3.5-flash'
-      ];
-
-      if (selectVal !== 'auto') {
-        candidateModels = [selectVal, ...candidateModels.filter(m => m !== selectVal)];
+      // 試行モデルの優先順序
+      let candidateModels = [];
+      if (selectedModel === 'auto') {
+        candidateModels = ['gemini-flash-lite-latest', 'gemini-3.5-flash', 'gemini-3.8-flash'];
+      } else {
+        // ユーザーが明示選択したモデルを最優先
+        candidateModels = [selectedModel];
+        if (selectedModel !== 'gemini-flash-lite-latest') candidateModels.push('gemini-flash-lite-latest');
       }
 
       let lastError = null;
@@ -456,12 +457,18 @@
 
       for (const model of candidateModels) {
         try {
-          resultArea.value = `解析中... (モデル: ${model})`;
+          if (model === 'gemini-3.8-flash') {
+            resultArea.value = `Gemini 3.8 Flash で推論・解析中... (思考プロセス実行中)`;
+          } else {
+            resultArea.value = `解析中... (モデル: ${model})`;
+          }
+
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-          // 各モデルへのリクエストに 10秒のタイムアウトを設定
+          // gemini-3.8-flash は思考時間を見越して最大45秒、軽量モデルは15秒のタイムアウト
+          const timeoutMs = (model === 'gemini-3.8-flash') ? 45000 : 15000;
           const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 10000);
+          const timer = setTimeout(() => controller.abort(), timeoutMs);
 
           const response = await fetch(url, {
             method: 'POST',
@@ -474,9 +481,9 @@
           const data = await response.json();
           if (data.error) {
             const errMsg = data.error.message || '';
-            // 混雑・高負荷エラーの場合は次のモデルへ自動フォールバック
+            // 混雑(503 / high demand)が発生した場合は次のモデルへ自動フォールバック
             if (data.error.code === 503 || errMsg.includes('high demand') || errMsg.includes('resource exhausted')) {
-              console.warn(`Model ${model} is experiencing high demand, falling back to next model...`);
+              console.warn(`Model ${model} is busy (high demand), trying fallback model...`);
               lastError = new Error(errMsg);
               continue;
             }
@@ -497,23 +504,22 @@
           resultArea.value = text;
           succeeded = true;
           lastError = null;
-          break; // 成功したので終了
+          break; // 成功
         } catch (err) {
           console.warn(`Model ${model} failed:`, err.message);
           lastError = err;
-          // Abort や ネットワークエラー時も次のモデルを試行
         }
       }
 
       if (!succeeded && lastError) {
         let msg = lastError.message;
         if (msg.includes('high demand')) {
-          msg = 'Google側のサーバーが一時的に混雑しています。10〜20秒ほど待ってからもう一度「文字起こしを開始」を押してください。';
-        } else if (msg.includes('Failed to fetch') || msg.includes('aborted')) {
-          msg = '通信がタイムアウトまたは遮断されました。広告ブロック拡張機能を無効化するか、再度お試しください。';
+          msg = '選択されたモデル（Googleサーバー）が現在混雑しています。上部のモデル選択で「gemini-flash-lite」を選ぶか、しばらく待ってから再度お試しください。';
+        } else if (msg.includes('aborted') || msg.includes('Failed to fetch')) {
+          msg = '通信がタイムアウトまたは遮断されました。回線状況をご確認いただくか、超高速モデル「gemini-flash-lite」をお試しください。';
         }
         showNotice('error', '文字起こしエラー', msg);
-        resultArea.value = 'エラーが発生しました:\n' + msg + '\n\n【対処法】\n・Google側の無料枠サーバーが一時的に混み合っている現象です。数秒後に再度「文字起こしを開始」を押すと成功します。\n・モデル選択で「gemini-flash-lite」が最も繋がりやすくなっています。';
+        resultArea.value = 'エラーが発生しました:\n' + msg;
       }
 
       runBtn.disabled = false;
