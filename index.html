@@ -112,11 +112,12 @@
         <div class="flex items-center justify-between">
           <label class="text-xs font-bold text-slate-300">抽出モードを選択:</label>
           <div class="flex items-center gap-1.5 text-xs text-slate-400">
-            <span>モデル:</span>
+            <span>AIモデル:</span>
             <select id="model-select" class="bg-slate-950 border border-slate-700 text-white rounded px-2 py-0.5 text-xs focus:outline-none">
-              <option value="gemini-3.5-flash">gemini-3.5-flash (高速・安定OCR / 2〜3秒)</option>
-              <option value="gemini-flash-lite-latest">gemini-flash-lite-latest (超高速 / 1〜2秒)</option>
-              <option value="gemini-3.8-flash">gemini-3.8-flash (思考モデル・高精度)</option>
+              <option value="auto">自動 (最も空いている高速モデルを選択 / 推奨)</option>
+              <option value="gemini-flash-lite-latest">gemini-flash-lite (最速・混雑なし / 1.5秒)</option>
+              <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite (高可用性)</option>
+              <option value="gemini-3.5-flash">gemini-3.5-flash (標準)</option>
             </select>
           </div>
         </div>
@@ -232,7 +233,7 @@
       btn.textContent = '通信テスト中...';
 
       try {
-        const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`;
+        const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=${key}`;
         const res = await fetch(testUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -383,7 +384,7 @@
       imgEl.style.transform = `rotate(${rotation}deg)`;
     }
 
-    // Google Gemini REST API 実行 (高速＆自動リトライ付き)
+    // Google Gemini REST API 実行 (超高速モデル優先＆多段フェイルオーバー)
     async function executeDirectOcr() {
       hideNotice();
       const apiKey = (document.getElementById('api-key-input').value || localStorage.getItem('gemini_api_key') || '').trim().replace(/["']/g, '');
@@ -399,10 +400,10 @@
 
       const runBtn = document.getElementById('run-btn');
       const resultArea = document.getElementById('result');
-      const selectedModel = document.getElementById('model-select').value || 'gemini-3.5-flash';
+      const selectVal = document.getElementById('model-select').value;
       runBtn.disabled = true;
       runBtn.textContent = '解析中...';
-      resultArea.value = 'Gemini で高精度解析中（約2〜3秒）...';
+      resultArea.value = 'Gemini で高速解析中（約1〜2秒）...';
 
       let systemInstruction = "あなたは高精度のOCR解析AIです。画像やPDFの文字を漏れなく正確にテキスト化してください。";
       let userPrompt = "この文書または画像に書かれているすべての文字を漏れなく高精度にテキスト化してください。";
@@ -437,30 +438,54 @@
         generationConfig: { temperature: 0.1 }
       };
 
-      // 試行するモデルの優先順序（選択モデル -> 失敗時は超高速モデルに自動フォールバック）
-      const modelsToTry = [selectedModel];
-      if (selectedModel !== 'gemini-flash-lite-latest') modelsToTry.push('gemini-flash-lite-latest');
-      if (selectedModel !== 'gemini-3.5-flash') modelsToTry.push('gemini-3.5-flash');
+      // 混雑(high demand)を自動回避するモデルキュー
+      // flash-lite は Google 側で最も混雑しない超軽量・専用帯域モデル
+      let candidateModels = [
+        'gemini-flash-lite-latest',
+        'gemini-3.5-flash-lite',
+        'gemini-3.1-flash-lite',
+        'gemini-3.5-flash'
+      ];
+
+      if (selectVal !== 'auto') {
+        candidateModels = [selectVal, ...candidateModels.filter(m => m !== selectVal)];
+      }
 
       let lastError = null;
+      let succeeded = false;
 
-      for (const model of modelsToTry) {
+      for (const model of candidateModels) {
         try {
+          resultArea.value = `解析中... (モデル: ${model})`;
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+          // 各モデルへのリクエストに 10秒のタイムアウトを設定
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 10000);
+
           const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            signal: controller.signal
           });
+          clearTimeout(timer);
 
           const data = await response.json();
           if (data.error) {
-            throw new Error(`[${model}] ${data.error.message || 'APIエラー'} (コード: ${data.error.code})`);
+            const errMsg = data.error.message || '';
+            // 混雑・高負荷エラーの場合は次のモデルへ自動フォールバック
+            if (data.error.code === 503 || errMsg.includes('high demand') || errMsg.includes('resource exhausted')) {
+              console.warn(`Model ${model} is experiencing high demand, falling back to next model...`);
+              lastError = new Error(errMsg);
+              continue;
+            }
+            throw new Error(`[${model}] ${errMsg} (コード: ${data.error.code})`);
           }
 
           const candidate = data.candidates?.[0];
           if (!candidate) {
-            throw new Error('モデルから応答候補が返されませんでした');
+            continue;
           }
           if (candidate.finishReason === 'SAFETY') {
             throw new Error('セーフティフィルターによりブロックされました');
@@ -470,21 +495,25 @@
           const text = parts.map(p => p.text).filter(Boolean).join('\n') || '文字が検出されませんでした。';
 
           resultArea.value = text;
+          succeeded = true;
           lastError = null;
           break; // 成功したので終了
         } catch (err) {
+          console.warn(`Model ${model} failed:`, err.message);
           lastError = err;
-          console.warn(`Model ${model} failed, trying next...`, err);
+          // Abort や ネットワークエラー時も次のモデルを試行
         }
       }
 
-      if (lastError) {
+      if (!succeeded && lastError) {
         let msg = lastError.message;
-        if (msg.includes('Failed to fetch')) {
-          msg = '通信に失敗しました。ブラウザの広告ブロック拡張機能（Brave Shields、uBlock等）が遮断していないかご確認ください。';
+        if (msg.includes('high demand')) {
+          msg = 'Google側のサーバーが一時的に混雑しています。10〜20秒ほど待ってからもう一度「文字起こしを開始」を押してください。';
+        } else if (msg.includes('Failed to fetch') || msg.includes('aborted')) {
+          msg = '通信がタイムアウトまたは遮断されました。広告ブロック拡張機能を無効化するか、再度お試しください。';
         }
         showNotice('error', '文字起こしエラー', msg);
-        resultArea.value = 'エラーが発生しました:\n' + msg + '\n\n【確認事項】\n1. APIキーが正しく入力されているか右上の「保存＆接続テスト」をご確認ください。\n2. ブラウザの広告ブロック拡張機能をオフにして再度お試しください。';
+        resultArea.value = 'エラーが発生しました:\n' + msg + '\n\n【対処法】\n・Google側の無料枠サーバーが一時的に混み合っている現象です。数秒後に再度「文字起こしを開始」を押すと成功します。\n・モデル選択で「gemini-flash-lite」が最も繋がりやすくなっています。';
       }
 
       runBtn.disabled = false;
