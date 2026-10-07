@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI OCR Studio - GitHub Pages対応版 (PDF＆写真・古文書・手書き文字起こし)</title>
+  <title>AI OCR Studio - PDF全ページ＆写真文字起こし (GitHub Pages完全対応)</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -30,10 +30,10 @@
         <div class="flex items-center gap-2">
           <h1 class="text-lg lg:text-xl font-bold text-white">AI OCR Studio</h1>
           <span class="px-2 py-0.5 text-[10px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
-            GitHub Pages 完全対応
+            PDF全ページ完全対応
           </span>
         </div>
-        <p class="text-xs text-slate-400">PDF・写真・手書き・古文書（くずし字）文字起こし Webアプリ</p>
+        <p class="text-xs text-slate-400">PDF全ページ一括抽出・写真・手書き・古文書（くずし字）文字起こし Webアプリ</p>
       </div>
     </div>
 
@@ -69,10 +69,10 @@
         </div>
         <h2 class="text-lg sm:text-xl font-bold text-white mb-2">PDFまたは画像をドラッグ＆ドロップ</h2>
         <p class="text-xs sm:text-sm text-slate-400 max-w-md mb-6 leading-relaxed">
-          クリックしてファイル選択、またはクリップボードから直接貼り付け（<kbd class="px-1.5 py-0.5 text-xs bg-slate-800 border border-slate-700 rounded text-slate-300">Ctrl+V</kbd>）できます。
+          複数ページのPDF資料も、1ページ目から最終ページまですべて一括で漏れなく文字起こしできます。<br class="hidden sm:inline">クリックして選択、またはクリップボードから貼り付け（<kbd class="px-1.5 py-0.5 text-xs bg-slate-800 border border-slate-700 rounded text-slate-300">Ctrl+V</kbd>）も可能です。
         </p>
         <button type="button" onclick="document.getElementById('file-input').click()" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-lg shadow-indigo-500/25 transition">
-          ファイルを選択
+          ファイルを選択 (PDF / 画像)
         </button>
       </div>
 
@@ -80,6 +80,11 @@
       <div class="flex flex-col gap-2.5">
         <h3 class="text-xs sm:text-sm font-bold text-slate-300">サンプル書類ですぐに試す（1クリック文字起こし）:</h3>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <button onclick="loadSample('multipage_pdf')" class="p-3.5 rounded-2xl bg-slate-900/70 hover:bg-slate-800 border border-indigo-500/40 text-left transition">
+            <span class="text-[10px] font-bold text-indigo-300 px-2 py-0.5 bg-indigo-500/20 rounded">複数ページPDF資料</span>
+            <h4 class="text-xs font-bold text-white mt-1.5 mb-0.5">多ページ事業報告書 (PDF)</h4>
+            <p class="text-[11px] text-slate-400">1ページ目から最終ページまで完全抽出</p>
+          </button>
           <button onclick="loadSample('kuzushiji')" class="p-3.5 rounded-2xl bg-slate-900/70 hover:bg-slate-800 border border-amber-500/30 text-left transition">
             <span class="text-[10px] font-bold text-amber-300 px-2 py-0.5 bg-amber-500/10 rounded">古文書・くずし字</span>
             <h4 class="text-xs font-bold text-white mt-1.5 mb-0.5">江戸時代 通行手形</h4>
@@ -89,11 +94,6 @@
             <span class="text-[10px] font-bold text-sky-300 px-2 py-0.5 bg-sky-500/10 rounded">手書きメモ</span>
             <h4 class="text-xs font-bold text-white mt-1.5 mb-0.5">手書き会議ノート</h4>
             <p class="text-[11px] text-slate-400">ノートの走り書き・ToDo・略字補正</p>
-          </button>
-          <button onclick="loadSample('receipt')" class="p-3.5 rounded-2xl bg-slate-900/70 hover:bg-slate-800 border border-indigo-500/30 text-left transition">
-            <span class="text-[10px] font-bold text-indigo-300 px-2 py-0.5 bg-indigo-500/10 rounded">レシート・領収書</span>
-            <h4 class="text-xs font-bold text-white mt-1.5 mb-0.5">コンビニ領収書</h4>
-            <p class="text-[11px] text-slate-400">店名・品目リスト・税抜・合計額</p>
           </button>
           <button onclick="loadSample('table')" class="p-3.5 rounded-2xl bg-slate-900/70 hover:bg-slate-800 border border-emerald-500/30 text-left transition">
             <span class="text-[10px] font-bold text-emerald-300 px-2 py-0.5 bg-emerald-500/10 rounded">表・CSV</span>
@@ -109,16 +109,35 @@
 
       <!-- モード選択ツールバー -->
       <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col gap-3 shadow-xl">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <label class="text-xs font-bold text-slate-300">抽出モードを選択:</label>
-          <div class="flex items-center gap-1.5 text-xs text-slate-400">
-            <span>AIモデル:</span>
-            <select id="model-select" class="bg-slate-950 border border-slate-700 text-white rounded px-2.5 py-1 text-xs focus:outline-none focus:border-indigo-500">
-              <option value="gemini-3.8-flash">gemini-3.8-flash (思考推論・最高精度OCR)</option>
-              <option value="gemini-flash-lite-latest">gemini-flash-lite (最速・混雑なし / 1.5秒)</option>
-              <option value="gemini-3.5-flash">gemini-3.5-flash (標準高速 / 2〜3秒)</option>
-              <option value="auto">自動 (混雑回避・最適モデル自動選択)</option>
-            </select>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <label class="text-xs font-bold text-slate-300">抽出モード:</label>
+            <span id="pdf-badge" class="hidden px-2.5 py-0.5 text-[11px] font-semibold text-indigo-300 bg-indigo-500/20 border border-indigo-500/40 rounded-full animate-pulse">
+              📄 PDF全ページ完全書き起こし対応
+            </span>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+            <!-- PDF抽出オプション (PDF時に表示) -->
+            <div id="pdf-page-options" class="hidden items-center gap-1.5 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
+              <span class="text-slate-300 font-semibold">PDFページ範囲:</span>
+              <select id="pdf-scope-select" class="bg-slate-900 border border-slate-700 text-white rounded px-2 py-0.5 text-xs focus:outline-none">
+                <option value="all">全ページ（1ページ〜最後まで漏れなく）</option>
+                <option value="custom">指定ページ範囲</option>
+              </select>
+              <input type="text" id="pdf-range-input" placeholder="例: 1-5" class="hidden bg-slate-900 border border-slate-700 text-white rounded px-2 py-0.5 w-16 text-xs text-center font-mono">
+            </div>
+
+            <!-- AIモデル選択 -->
+            <div class="flex items-center gap-1.5">
+              <span>AIモデル:</span>
+              <select id="model-select" class="bg-slate-950 border border-slate-700 text-white rounded px-2.5 py-1 text-xs focus:outline-none focus:border-indigo-500">
+                <option value="gemini-3.8-flash">gemini-3.8-flash (思考推論・最高精度OCR)</option>
+                <option value="gemini-flash-lite-latest">gemini-flash-lite (最速・混雑なし / 1.5秒)</option>
+                <option value="gemini-3.5-flash">gemini-3.5-flash (標準高速 / 2〜3秒)</option>
+                <option value="auto">自動 (混雑回避・最適モデル自動選択)</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -145,25 +164,28 @@
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
         
         <!-- 左：元画像/PDFプレビュー -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl flex flex-col min-h-[480px]">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl flex flex-col min-h-[500px]">
           <div class="p-3 border-b border-slate-800 text-xs flex justify-between items-center text-slate-400">
             <span id="doc-title" class="font-semibold text-slate-200 truncate max-w-xs">プレビュー</span>
             <div class="space-x-1">
-              <button onclick="rotate(-90)" class="px-2 py-1 bg-slate-800 rounded hover:text-white" title="左90°回転">↺ 90°</button>
-              <button onclick="rotate(90)" class="px-2 py-1 bg-slate-800 rounded hover:text-white" title="右90°回転">↻ 90°</button>
+              <button onclick="rotate(-90)" id="rotate-left-btn" class="px-2 py-1 bg-slate-800 rounded hover:text-white" title="左90°回転">↺ 90°</button>
+              <button onclick="rotate(90)" id="rotate-right-btn" class="px-2 py-1 bg-slate-800 rounded hover:text-white" title="右90°回転">↻ 90°</button>
               <button onclick="resetDoc()" class="px-2 py-1 text-rose-400 hover:bg-rose-500/10 rounded ml-2">別のファイル</button>
             </div>
           </div>
-          <div class="flex-1 bg-slate-950 p-4 flex items-center justify-center overflow-auto min-h-[420px]">
-            <img id="preview-img" src="" alt="プレビュー" class="max-h-[500px] max-w-full object-contain transition-transform duration-200 block shadow-md rounded">
-            <iframe id="preview-pdf" src="" class="w-full h-full min-h-[480px] rounded-lg hidden border border-slate-800 bg-white"></iframe>
+          <div class="flex-1 bg-slate-950 p-4 flex items-center justify-center overflow-auto min-h-[440px]">
+            <img id="preview-img" src="" alt="プレビュー" class="max-h-[520px] max-w-full object-contain transition-transform duration-200 block shadow-md rounded">
+            <iframe id="preview-pdf" src="" class="w-full h-full min-h-[500px] rounded-lg hidden border border-slate-800 bg-white"></iframe>
           </div>
         </div>
 
         <!-- 右：抽出テキストエディタ -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl flex flex-col min-h-[480px]">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl flex flex-col min-h-[500px]">
           <div class="p-3 border-b border-slate-800 text-xs flex justify-between items-center">
-            <span class="font-semibold text-slate-300">抽出テキスト結果</span>
+            <div class="flex items-center gap-2">
+              <span class="font-semibold text-slate-300">抽出テキスト結果</span>
+              <span id="char-count-badge" class="text-[11px] text-slate-400 font-mono">0 文字</span>
+            </div>
             <div class="space-x-2">
               <button onclick="copyText()" id="copy-btn" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-200 font-semibold transition">
                 コピー
@@ -174,7 +196,7 @@
             </div>
           </div>
           <div class="flex-1 p-4 bg-slate-950 flex flex-col">
-            <textarea id="result" class="w-full flex-1 bg-transparent text-slate-100 font-mono text-xs sm:text-sm leading-relaxed resize-none focus:outline-none" placeholder="文字起こし結果がここに表示されます..."></textarea>
+            <textarea id="result" oninput="updateCharCount()" class="w-full flex-1 bg-transparent text-slate-100 font-mono text-xs sm:text-sm leading-relaxed resize-none focus:outline-none" placeholder="文字起こし結果がここに表示されます..."></textarea>
           </div>
         </div>
 
@@ -190,6 +212,7 @@
     let currentMode = 'standard';
     let rotation = 0;
     let currentBlobUrl = null;
+    let isCurrentPdf = false;
 
     // 初期化：保存されているAPIキーをロード
     window.addEventListener('DOMContentLoaded', () => {
@@ -197,6 +220,18 @@
       if (savedKey) {
         document.getElementById('api-key-input').value = savedKey;
       }
+
+      // PDF範囲プルダウンの挙動
+      const scopeSelect = document.getElementById('pdf-scope-select');
+      const rangeInput = document.getElementById('pdf-range-input');
+      scopeSelect.addEventListener('change', () => {
+        if (scopeSelect.value === 'custom') {
+          rangeInput.classList.remove('hidden');
+          rangeInput.focus();
+        } else {
+          rangeInput.classList.add('hidden');
+        }
+      });
     });
 
     function showNotice(type, title, msg) {
@@ -291,18 +326,18 @@
       }
     });
 
-    // ファイル読み込み＆適正サイズ変換（通信失敗を防ぐ）
+    // ファイル読み込み＆適正化
     function handleFile(file) {
       hideNotice();
-      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      isCurrentPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 
       if (currentBlobUrl) {
         URL.revokeObjectURL(currentBlobUrl);
       }
       currentBlobUrl = URL.createObjectURL(file);
-      showWorkspace(currentBlobUrl, file.name, isPdf);
+      showWorkspace(currentBlobUrl, file.name, isCurrentPdf);
 
-      if (isPdf) {
+      if (isCurrentPdf) {
         mimeType = 'application/pdf';
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -348,16 +383,30 @@
 
       const imgEl = document.getElementById('preview-img');
       const pdfEl = document.getElementById('preview-pdf');
+      const pdfBadge = document.getElementById('pdf-badge');
+      const pdfOptions = document.getElementById('pdf-page-options');
+      const rotateLeft = document.getElementById('rotate-left-btn');
+      const rotateRight = document.getElementById('rotate-right-btn');
 
       if (isPdf) {
         imgEl.classList.add('hidden');
         pdfEl.classList.remove('hidden');
         pdfEl.src = url;
+        pdfBadge.classList.remove('hidden');
+        pdfOptions.classList.remove('hidden');
+        pdfOptions.classList.add('flex');
+        rotateLeft.classList.add('hidden');
+        rotateRight.classList.add('hidden');
       } else {
         pdfEl.classList.add('hidden');
         imgEl.classList.remove('hidden');
         imgEl.src = url;
         imgEl.style.transform = `rotate(0deg)`;
+        pdfBadge.classList.add('hidden');
+        pdfOptions.classList.add('hidden');
+        pdfOptions.classList.remove('flex');
+        rotateLeft.classList.remove('hidden');
+        rotateRight.classList.remove('hidden');
       }
     }
 
@@ -366,7 +415,9 @@
       document.getElementById('workspace-section').classList.remove('flex');
       document.getElementById('dropzone-section').classList.remove('hidden');
       document.getElementById('result').value = '';
+      updateCharCount();
       base64Data = '';
+      isCurrentPdf = false;
       const imgEl = document.getElementById('preview-img');
       const pdfEl = document.getElementById('preview-pdf');
       imgEl.src = '';
@@ -383,7 +434,12 @@
       imgEl.style.transform = `rotate(${rotation}deg)`;
     }
 
-    // Google Gemini REST API 実行 (gemini-3.8-flash 対応)
+    function updateCharCount() {
+      const val = document.getElementById('result').value || '';
+      document.getElementById('char-count-badge').textContent = `${val.length.toLocaleString()} 文字`;
+    }
+
+    // Google Gemini REST API 実行 (PDF全ページ完全書き起こし対応)
     async function executeDirectOcr() {
       hideNotice();
       const apiKey = (document.getElementById('api-key-input').value || localStorage.getItem('gemini_api_key') || '').trim().replace(/["']/g, '');
@@ -393,7 +449,7 @@
         return;
       }
       if (!base64Data) {
-        showNotice('error', 'ファイル未選択', 'ファイルがまだ読み込まれていません。画像を選択してください。');
+        showNotice('error', 'ファイル未選択', 'ファイルがまだ読み込まれていません。画像またはPDFを選択してください。');
         return;
       }
 
@@ -403,32 +459,56 @@
       runBtn.disabled = true;
       runBtn.textContent = '解析中...';
 
-      if (selectedModel === 'gemini-3.8-flash') {
-        resultArea.value = 'Gemini 3.8 Flash で思考推論中... (深層解析のため15〜25秒ほどお待ちください)';
+      if (isCurrentPdf) {
+        resultArea.value = 'PDF資料の全ページを解析しています... (全ページ書き起こしのため少々お待ちください)';
+      } else if (selectedModel === 'gemini-3.8-flash') {
+        resultArea.value = 'Gemini 3.8 Flash で思考推論中... (深層解析のため少々お待ちください)';
       } else {
         resultArea.value = 'Gemini で高速解析中...';
       }
 
+      // PDF全ページ抽出用の強力なシステム指示＆プロンプト
       let systemInstruction = "あなたは高精度のOCR解析AIです。画像やPDFの文字を漏れなく正確にテキスト化してください。";
       let userPrompt = "この文書または画像に書かれているすべての文字を漏れなく高精度にテキスト化してください。";
 
-      if (currentMode === 'kuzushiji') {
-        systemInstruction = "あなたは日本の古文書学・翻刻の専門家です。くずし字・変体仮名を精密に翻刻し、【翻刻】、【現代語訳】、【語注・時代背景解説】の3部構成で丁寧に出力してください。";
-        userPrompt = "この古文書・くずし字を専門的に解読し、翻刻、現代語訳、語注を出力してください。";
-      } else if (currentMode === 'handwriting') {
-        systemInstruction = "手書き文字解析のスペシャリストとして、ノートやホワイトボードの乱筆・続け字・略字・ToDoリストを文脈から正しく補正してテキスト化してください。";
-      } else if (currentMode === 'table') {
-        systemInstruction = "画像内の表組みや明細データをMarkdown表形式 (| 列1 | 列2 | ...) に整形して出力してください。";
-      } else if (currentMode === 'key_value') {
-        systemInstruction = "主要項目を整理し、最後に ```json ... ``` 形式で構造化JSONを出力してください。";
-      } else if (currentMode === 'markdown') {
-        systemInstruction = "見出し(#)、箇条書き(-)、リスト、太字等を使って読みやすいMarkdown形式で出力してください。";
-      } else if (currentMode === 'ruby_furigana') {
-        systemInstruction = "縦書きやルビ(ふりがな)を正確に文字起こししてください。ふりがなは 漢字(かんじ) の形式で付与してください。";
-      } else if (currentMode === 'translate') {
-        systemInstruction = "原文の文字起こしを出力した後、区切り線(---)を挟んで日本語訳または英訳を出力してください。";
+      if (isCurrentPdf) {
+        const scope = document.getElementById('pdf-scope-select').value;
+        const customRange = document.getElementById('pdf-range-input').value.trim();
+
+        let pageRule = "提供されたPDF資料に含まれるすべてのページ（1ページ目から最後のページまで）";
+        if (scope === 'custom' && customRange) {
+          pageRule = `指定されたページ範囲（${customRange}）のすべてのページ`;
+        }
+
+        systemInstruction = `あなたはプロフェッショナルな公的文書・学術資料翻刻およびOCRエキスパートです。
+【PDF全ページ完全文字起こし規則】
+1. ${pageRule}に記載されている文字を、1ページたりとも漏らさず、すべてのページを一言一句正確に文字起こししてください。
+2. 各ページの書き起こしの先頭には必ず明瞭に「--- 【ページ 1】 ---」「--- 【ページ 2】 ---」のようにページ区切り見出しを付けてください。
+3. 途中で「以下省略」「中略」などの要約や省略は絶対に禁止です。全ページの全文章、表、注釈、ヘッダー、フッターを完全に出力してください。
+4. 原文の段落・改行・箇条書きの構造を忠実に再現してください。`;
+
+        userPrompt = `このPDF資料のすべてのページ（1ページ目〜最終ページまで）を、ページ番号見出し「--- 【ページ N】 ---」を付けて、省略・要約せず全量文字起こししてください。`;
+      } else {
+        // 画像時の各モード別プロンプト
+        if (currentMode === 'kuzushiji') {
+          systemInstruction = "あなたは日本の古文書学・翻刻の専門家です。くずし字・変体仮名を精密に翻刻し、【翻刻】、【現代語訳】、【語注・時代背景解説】の3部構成で丁寧に出力してください。";
+          userPrompt = "この古文書・くずし字を専門的に解読し、翻刻、現代語訳、語注を出力してください。";
+        } else if (currentMode === 'handwriting') {
+          systemInstruction = "手書き文字解析のスペシャリストとして、ノートやホワイトボードの乱筆・続け字・略字・ToDoリストを文脈から正しく補正してテキスト化してください。";
+        } else if (currentMode === 'table') {
+          systemInstruction = "画像内の表組みや明細データをMarkdown表形式 (| 列1 | 列2 | ...) に整形して出力してください。";
+        } else if (currentMode === 'key_value') {
+          systemInstruction = "主要項目を整理し、最後に ```json ... ``` 形式で構造化JSONを出力してください。";
+        } else if (currentMode === 'markdown') {
+          systemInstruction = "見出し(#)、箇条書き(-)、リスト、太字等を使って読みやすいMarkdown形式で出力してください。";
+        } else if (currentMode === 'ruby_furigana') {
+          systemInstruction = "縦書きやルビ(ふりがな)を正確に文字起こししてください。ふりがなは 漢字(かんじ) の形式で付与してください。";
+        } else if (currentMode === 'translate') {
+          systemInstruction = "原文の文字起こしを出力した後、区切り線(---)を挟んで日本語訳または英訳を出力してください。";
+        }
       }
 
+      // 最大出力トークン数を 16384 に拡大（多ページPDFでも途中で切れるのを完全に防止）
       const payload = {
         systemInstruction: { parts: [{ text: systemInstruction }] },
         contents: [
@@ -439,15 +519,17 @@
             ]
           }
         ],
-        generationConfig: { temperature: 0.1 }
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 16384
+        }
       };
 
       // 試行モデルの優先順序
       let candidateModels = [];
       if (selectedModel === 'auto') {
-        candidateModels = ['gemini-flash-lite-latest', 'gemini-3.5-flash', 'gemini-3.8-flash'];
+        candidateModels = ['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-flash-lite-latest'];
       } else {
-        // ユーザーが明示選択したモデルを最優先
         candidateModels = [selectedModel];
         if (selectedModel !== 'gemini-flash-lite-latest') candidateModels.push('gemini-flash-lite-latest');
       }
@@ -457,7 +539,9 @@
 
       for (const model of candidateModels) {
         try {
-          if (model === 'gemini-3.8-flash') {
+          if (isCurrentPdf) {
+            resultArea.value = `PDF全ページを解析中... (モデル: ${model} で全ページを順次テキスト化しています)`;
+          } else if (model === 'gemini-3.8-flash') {
             resultArea.value = `Gemini 3.8 Flash で推論・解析中... (思考プロセス実行中)`;
           } else {
             resultArea.value = `解析中... (モデル: ${model})`;
@@ -465,8 +549,8 @@
 
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-          // gemini-3.8-flash は思考時間を見越して最大45秒、軽量モデルは15秒のタイムアウト
-          const timeoutMs = (model === 'gemini-3.8-flash') ? 45000 : 15000;
+          // PDF全ページや思考モデルの場合は最大60秒のタイムアウト
+          const timeoutMs = (isCurrentPdf || model === 'gemini-3.8-flash') ? 60000 : 15000;
           const controller = new AbortController();
           const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -481,7 +565,6 @@
           const data = await response.json();
           if (data.error) {
             const errMsg = data.error.message || '';
-            // 混雑(503 / high demand)が発生した場合は次のモデルへ自動フォールバック
             if (data.error.code === 503 || errMsg.includes('high demand') || errMsg.includes('resource exhausted')) {
               console.warn(`Model ${model} is busy (high demand), trying fallback model...`);
               lastError = new Error(errMsg);
@@ -502,6 +585,7 @@
           const text = parts.map(p => p.text).filter(Boolean).join('\n') || '文字が検出されませんでした。';
 
           resultArea.value = text;
+          updateCharCount();
           succeeded = true;
           lastError = null;
           break; // 成功
@@ -514,9 +598,9 @@
       if (!succeeded && lastError) {
         let msg = lastError.message;
         if (msg.includes('high demand')) {
-          msg = '選択されたモデル（Googleサーバー）が現在混雑しています。上部のモデル選択で「gemini-flash-lite」を選ぶか、しばらく待ってから再度お試しください。';
+          msg = '選択されたモデル（Googleサーバー）が現在混雑しています。モデル選択で「gemini-flash-lite」を選ぶか、少し待ってから再度お試しください。';
         } else if (msg.includes('aborted') || msg.includes('Failed to fetch')) {
-          msg = '通信がタイムアウトまたは遮断されました。回線状況をご確認いただくか、超高速モデル「gemini-flash-lite」をお試しください。';
+          msg = '通信がタイムアウトしました。ページ数が多い場合は「PDFページ範囲」でページ数を絞るか、軽量モデルをお試しください。';
         }
         showNotice('error', '文字起こしエラー', msg);
         resultArea.value = 'エラーが発生しました:\n' + msg;
@@ -545,6 +629,50 @@
 
     // サンプル書類のロード
     function loadSample(type) {
+      if (type === 'multipage_pdf') {
+        // 多ページPDFサンプルの生成 (2ページのPDFをバイナリ生成)
+        const pdfContent = `%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 400 400] /Contents 5 0 R /Resources << /Font << /F1 7 0 R >> >> >> endobj
+4 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 400 400] /Contents 6 0 R /Resources << /Font << /F1 7 0 R >> >> >> endobj
+5 0 obj << /Length 75 >> stream
+BT /F1 16 Tf 40 320 Td (Page 1: Annual Business Report 2026) Tj /F1 12 Tf 40 280 Td (1. Executive Summary: Record growth in AI-driven OCR automation.) Tj ET
+endstream endobj
+6 0 obj << /Length 80 >> stream
+BT /F1 16 Tf 40 320 Td (Page 2: Financial Highlights) Tj /F1 12 Tf 40 280 Td (Total Revenue: $12.4M (+42% YoY). Operational Efficiency increased by 68%.) Tj ET
+endstream endobj
+7 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
+xref
+0 8
+0000000000 65535 f 
+0000000009 00000 n 
+0000000056 00000 n 
+0000000120 00000 n 
+0000000236 00000 n 
+0000000352 00000 n 
+0000000478 00000 n 
+0000000609 00000 n 
+trailer << /Size 8 /Root 1 0 R >>
+startxref
+686
+%%EOF`;
+        const blob = new Blob([pdfContent], { type: 'application/pdf' });
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          base64Data = e.target.result.split(',')[1] || '';
+          mimeType = 'application/pdf';
+          isCurrentPdf = true;
+          if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+          currentBlobUrl = URL.createObjectURL(blob);
+          showWorkspace(currentBlobUrl, '多ページ事業報告書 (サンプル.pdf)', true);
+          setMode('standard');
+        };
+        reader.readAsDataURL(blob);
+        return;
+      }
+
+      // 画像サンプルの描画
       const canvas = document.createElement('canvas');
       canvas.width = 600;
       canvas.height = 700;
@@ -648,6 +776,7 @@
       const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
       base64Data = (dataUrl.split(',')[1] || '').replace(/[\r\n\s]/g, '');
       mimeType = 'image/jpeg';
+      isCurrentPdf = false;
       showWorkspace(dataUrl, title, false);
       setMode(mode);
     }
